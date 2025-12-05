@@ -27,6 +27,7 @@ module CubeSimDriver (
     wire start = ~KEY[2];      // start / scramble button (active-low on board)
     wire [1:0] rotationControl = KEY[1:0];
     wire [5:0] faceInput       = SW[5:0];
+	 integer moveCount;
 
     // ------------------------
     // State encoding
@@ -95,6 +96,21 @@ module CubeSimDriver (
         .cubeState    (cubeFlat),
         .cubeStateNew (cubeFlatNext)
     );
+	 
+	 seven_segment OneDigitDisplay (
+	 .SW(moveCount%10),
+	 .HEX0(HEX0)
+	 );
+	 
+	 seven_segment tenDigitDisplay (
+	 .SW(moveCount/10),
+	 .HEX0(HEX1)
+	 );
+	 
+	 seven_segment hundregDigitDisplay (
+	 .SW(moveCount/100),
+	 .HEX0(HEX2)
+	 );
 
     // Stub for solved detection
     wire isSolved;
@@ -138,6 +154,7 @@ module CubeSimDriver (
             S             <= START;
             cubeFlat      <= 162'd0;
             scrambleCount <= 6'd0;
+				moveCount <= 0;
         end else begin
             S <= NS;
 
@@ -164,6 +181,7 @@ module CubeSimDriver (
                 MOVE: begin
                     // Apply one manual move (from switches/keys)
                     cubeFlat <= cubeFlatNext;
+						  moveCount <= moveCount + 1;
                 end
 
                 default: begin
