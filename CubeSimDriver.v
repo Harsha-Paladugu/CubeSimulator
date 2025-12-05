@@ -18,14 +18,24 @@ module CubeSimDriver (
     output      [9:0]   LEDR,
 
     //////////// SW //////////
-    input       [5:0]   SW
+    input       [5:0]   SW,
+	 
+	 	//////////// VGA //////////
+	output		          		VGA_BLANK_N,
+	output	     [7:0]		VGA_B,
+	output		          		VGA_CLK,
+	output	     [7:0]		VGA_G,
+	output		          		VGA_HS,
+	output	     [7:0]		VGA_R,
+	output		          		VGA_SYNC_N,
+	output		          		VGA_VS
 );
 
     // ------------------------
     // Basic signals
     // ------------------------
     wire clk   = CLOCK_50;
-    wire rst_n = KEY[3];   // active-low reset from KEY3
+    wire rst = KEY[3];   // active-low reset from KEY3
 
     // Manual face selection: SW[5:3] -> 0..5
     wire [2:0] faceSelect      = SW[5:3];
@@ -49,8 +59,8 @@ module CubeSimDriver (
     reg move_ff0,     move_ff1;
 
     // Synchronize button signals to clk and create 1-clock pulses on rising edge
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+    always @(posedge clk or negedge rst) begin
+        if (!rst) begin
             scramble_ff0 <= 1'b0;
             scramble_ff1 <= 1'b0;
             move_ff0     <= 1'b0;
@@ -109,7 +119,7 @@ module CubeSimDriver (
 
     moveGenerator rng (
         .clk         (clk),
-        .rst         (rst_n),   // if your RNG expects active-high reset, use ~rst_n
+        .rst         (rst),   // if your RNG expects active-high reset, use ~rst
         .nextFace    (randFace),
         .nextRotation(randRot)
     );
@@ -180,6 +190,22 @@ module CubeSimDriver (
     );
 
     assign HEX3 = 7'b111_1111;  // off
+	 
+	 vga_Top printCube (
+	 .clk(clk),
+	 .color(cubeFlat),
+	 .rst(rst),
+	 .VGA_BLANK_N(VGA_BLANK_N),
+	 .VGA_B(VGA_B),
+	 .VGA_CLK(VGA_CLK),
+	 .VGA_G(VGA_G),
+	 .VGA_HS(VGA_HS),
+	 .VGA_R(VGA_R),
+	 .VGA_SYNC_N(VGA_SYNC_N),
+	 .VGA_VS(VGA_VS)
+	 );
+	 
+	 
 
     // ------------------------
     // Solved detection stub
@@ -191,8 +217,8 @@ module CubeSimDriver (
     // ------------------------
     integer i;
 
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+    always @(posedge clk or negedge rst) begin
+        if (!rst) begin
             S             <= START;
             cubeFlat      <= 162'd0;
             scrambleCount <= 6'd0;

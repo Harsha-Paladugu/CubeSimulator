@@ -1,24 +1,8 @@
 module vga_Top	(
  
-	input 		          		CLOCK_50,
-	input [7:0] color,
-
-
-	output		     [6:0]		HEX0,
-	output		     [6:0]		HEX1,
-	output		     [6:0]		HEX2,
-	output		     [6:0]		HEX3,
-
-
-
-	input 		     [3:0]		KEY,
-
-	output		     [9:0]		LEDR,
-
-
-
-	
-	input 		     [9:0]		SW,
+	input 		  clk,
+	input [161:0] color,
+	input         rst,
 
 
 
@@ -40,20 +24,9 @@ module vga_Top	(
 
 );
 
-  // Turn off all displays.
-	assign	HEX0		=	7'h00;
-	assign	HEX1		=	7'h00;
-	assign	HEX2		=	7'h00;
-	assign	HEX3		=	7'h00;
-
 // DONE STANDARD PORT DECLARATION ABOVE
 
 /* HANDLE SIGNALS FOR CIRCUIT */
-wire clk;
-wire rst;
-
-assign clk = CLOCK_50;
-assign rst = KEY[0];
 
 wire [17:0]SW_db;
 
@@ -284,13 +257,6 @@ bitmap_rom[2387] = 1'b1;
   
 end
 
-debounce_switches db(
-.clk(clk),
-.rst(rst),
-.SW(SW), 
-.SW_db(SW_db)
-);
-
 // VGA DRIVER
 wire active_pixels; // is on when we're in the active draw space
 wire frame_done;
@@ -483,7 +449,7 @@ reg [7:0]blue;
 
 always @(*) begin
 	if(i==0)begin
-	j<=8'b0;
+	j=8'b0;
 	end
 
     // Reading phase → output memory contents
@@ -502,10 +468,10 @@ always @(*) begin
 		  jCount=0;
 		  end
         packedColor[0]=color[j];
-        packedColor[1]=color[j-1];
-        packedColor[2]=color[j-2];
+        packedColor[1]=color[j+1];
+        packedColor[2]=color[j+2];
 		 if(blkx) begin
-        blkx = 1'b1;
+        blkx = 1'b0;
 		  j = j+3;
 		  jCount = jCount+3;
 		  end 
@@ -542,7 +508,7 @@ always @(*) begin
     else begin
         // Block is "off"
 		  offCount = offCount+1;
-		  blkx = 1'b0;
+		  blkx = 1'b1;
         red   = 8'h00;
         green = 8'h00;
         blue  = 8'h00;
