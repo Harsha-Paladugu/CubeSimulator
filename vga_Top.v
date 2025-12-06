@@ -4,40 +4,31 @@ module vga_Top	(
 	input [161:0] color,
 	input         rst,
 
-
-
 	//////////// VGA //////////
-	output		          		VGA_BLANK_N,
-	output reg	     [7:0]		VGA_B,
-	output		          		VGA_CLK,
-	output reg	     [7:0]		VGA_G,
-	output		          		VGA_HS,
-	output reg	     [7:0]		VGA_R,
-	output		          		VGA_SYNC_N,
-	output		          		VGA_VS
-
-	//////////// GPIO_0, GPIO_0 connect to GPIO Default //////////
-	//inout 		    [35:0]		GPIO_0,
-
-	//////////// GPIO_1, GPIO_1 connect to GPIO Default //////////
-	//inout 		    [35:0]		GPIO_1
-
+	output		          VGA_BLANK_N,
+	output reg	  [7:0]  VGA_B,
+	output		          VGA_CLK,
+	output reg	  [7:0]  VGA_G,
+	output		          VGA_HS,
+	output reg	  [7:0]  VGA_R,
+	output		          VGA_SYNC_N,
+	output		          VGA_VS
 );
 
-// DONE STANDARD PORT DECLARATION ABOVE
-
-/* HANDLE SIGNALS FOR CIRCUIT */
-
-wire [17:0]SW_db;
+// ----------------------------------------------------
+// BITMAP ROM (unchanged)
+// ----------------------------------------------------
+wire [17:0] SW_db;  // unused but keeping for now
 
 reg [0:0] bitmap_rom [0:3072];
- // Initialize the bitmap
+
+integer i_init;
 initial begin
     // Set all to 0 (off) first
-    for (i = 0; i < 3072; i = i + 1) begin
-        bitmap_rom[i] = 1'b0;
+    for (i_init = 0; i_init < 3072; i_init = i_init + 1) begin
+        bitmap_rom[i_init] = 1'b0;
     end
-    
+
     bitmap_rom[1282] = 1'b1;
     bitmap_rom[1283] = 1'b1;
 	 bitmap_rom[1285] = 1'b1;
@@ -254,271 +245,258 @@ bitmap_rom[2322] = 1'b1;
 bitmap_rom[2323] = 1'b1;
 bitmap_rom[2386] = 1'b1;
 bitmap_rom[2387] = 1'b1;
-  
 end
 
+// ----------------------------------------------------
 // VGA DRIVER
-wire active_pixels; // is on when we're in the active draw space
+// ----------------------------------------------------
+wire active_pixels;
 wire frame_done;
-
-wire [9:0]x; // current x
-wire [9:0]y; // current y - 10 bits = 1024 ... a little bit more than we need
+wire [9:0] x;  // current x
+wire [9:0] y;  // current y
 
 vga_driver the_vga(
-.clk(clk),
-.rst(rst),
+    .clk(clk),
+    .rst(rst),
 
-.vga_clk(VGA_CLK),
+    .vga_clk(VGA_CLK),
+    .hsync(VGA_HS),
+    .vsync(VGA_VS),
 
-.hsync(VGA_HS),
-.vsync(VGA_VS),
+    .active_pixels(active_pixels),
+    .frame_done(frame_done),
 
-.active_pixels(active_pixels),
-.frame_done(frame_done),
+    .xPixel(x),
+    .yPixel(y),
 
-.xPixel(x),
-.yPixel(y),
-
-.VGA_BLANK_N(VGA_BLANK_N),
-.VGA_SYNC_N(VGA_SYNC_N)
+    .VGA_BLANK_N(VGA_BLANK_N),
+    .VGA_SYNC_N(VGA_SYNC_N)
 );
 
-/* -------------------------------- */
-/* MEMORY to STORE a MINI frambuffer.  Problem is the FPGA's on-chip memory can't hold an entire frame, so some
-form of compression is needed.  I show a simple compress the image to 16 pixels or a 4 by 4, but this memory
-could handle more */
-reg [14:0] frame_buf_mem_address;
-reg [23:0] frame_buf_mem_data;
-reg frame_buf_mem_wren;
-wire [23:0]frame_buf_mem_q;
+// ----------------------------------------------------
+// MINI FRAMEBUFFER
+// ----------------------------------------------------
+reg  [14:0] frame_buf_mem_address;
+reg  [23:0] frame_buf_mem_data;
+reg         frame_buf_mem_wren;
+wire [23:0] frame_buf_mem_q;
 
-  
 vga_frame vga_memory(
-	frame_buf_mem_address,
-	clk,
-	frame_buf_mem_data,
-	frame_buf_mem_wren,
-	frame_buf_mem_q);
+    .address (frame_buf_mem_address),
+    .clock   (clk),
+    .data    (frame_buf_mem_data),
+    .wren    (frame_buf_mem_wren),
+    .q       (frame_buf_mem_q)
+);
 
-
-
-/* -------------------------------- */
-/* 	FSM to control the writing to the framebuffer and the reading of it.
-	I make a 4x4 pixel map in memory.  Then as I read this info I display it 
-	noting that the VGA draws in rows, so I have to make sure the right data
-	is loaded.  Note, that some of these parameters can be increased. */
-reg [15:0]i;
-reg [7:0]j;
-reg [7:0]offCount;
-reg [7:0]jCount;
-//looks to see if there is a black space left or above the current spot
-reg [0:0]blkx;
-
-reg [2:0]packedColor;
-reg [7:0]S;
-reg [7:0]NS;
+// ----------------------------------------------------
+// FSM + INDEXING
+// ----------------------------------------------------
+reg [15:0] i;        // loop index for bitmap / framebuffer
+reg [7:0]  j;        // bit index into `color` (3 bits per sticker)
+reg        blkx;     // indicates whether previous bitmap cell was OFF
+reg [7:0]  S, NS;
 
 parameter 
-	START = 8'd0,
-	W2M_INIT = 8'd1, // Write 2 Memory init - this is a FOR loop
-	W2M_COND = 8'd2, // Write 2 Memory condion
-	W2M_INC = 8'd3, // Write 2 Memory incrementer
-	RFM_INIT = 8'd4, // Read From Memory init
-	RFM_DRAWING = 8'd5, // Read From Memory draw step
-	ERROR = 8'hFF;
+    START        = 8'd0,
+    W2M_INIT     = 8'd1,
+    W2M_COND     = 8'd2,
+    W2M_INC      = 8'd3,
+    RFM_INIT     = 8'd4,
+    RFM_DRAWING  = 8'd5,
+    ERROR        = 8'hFF;
 
-parameter LOOP_SIZE = 16'd3072;
-parameter LOOP_I_SIZE = 16'd64;
-parameter LOOP_Y_SIZE = 16'd48;
-parameter WIDTH = 16'd640;
-parameter HEIGHT = 16'd480;
-parameter PIXELS_IN_WIDTH = WIDTH/LOOP_I_SIZE; // 160
-parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE; // 120
-//reg pattern_mem [0:LOOP_SIZE-1];
+parameter LOOP_SIZE        = 16'd3072;
+parameter LOOP_I_SIZE      = 16'd64;
+parameter LOOP_Y_SIZE      = 16'd48;
+parameter WIDTH            = 16'd640;
+parameter HEIGHT           = 16'd480;
+parameter PIXELS_IN_WIDTH  = WIDTH/LOOP_I_SIZE;   // 160
+parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE;  // 120
 
+// ----------------------------------------------------
+// NEXT STATE LOGIC
+// ----------------------------------------------------
+always @(*) begin
+    case (S)
+        START:      NS = W2M_INIT;
+        W2M_INIT:   NS = W2M_COND;
 
-/* Calculate NS */
-always @(*)
-	case (S)
-		START: NS = W2M_INIT;
-		W2M_INIT: NS = W2M_COND;
-		W2M_COND:
-			if (i < LOOP_SIZE)
-				NS = W2M_INC;
-			else
-				NS = RFM_INIT;
-		W2M_INC: NS = W2M_COND;
-		RFM_INIT: 
-			if (frame_done == 1'b0)
-				NS = RFM_DRAWING;
-			else	
-				NS = RFM_INIT;
-		RFM_DRAWING:
-			if (frame_done == 1'b1)
-				NS = RFM_INIT;
-			else
-				NS = RFM_DRAWING;
-		default:	NS = ERROR;
-	endcase
+        W2M_COND: begin
+            if (i < LOOP_SIZE)
+                NS = W2M_INC;
+            else
+                NS = RFM_INIT;
+        end
 
-	
-always @(posedge clk or negedge rst)
-begin
-	if (rst == 1'b0)
-	begin
-			S <= START;
-	end
-	else
-	begin
-			S <= NS;
-	end
+        W2M_INC:    NS = W2M_COND;
+
+        // After a frame is done, go refresh framebuffer again
+        RFM_INIT: begin
+            if (frame_done == 1'b1)
+                NS = W2M_INIT;
+            else
+                NS = RFM_INIT;
+        end
+
+        RFM_DRAWING: begin
+            if (frame_done == 1'b1)
+                NS = W2M_INIT;
+            else
+                NS = RFM_DRAWING;
+        end
+
+        default:    NS = ERROR;
+    endcase
 end
 
-/* 
-The code goes through a write phase (after reset) and an endless read phase once writing is done.
-
-The W2M (write to memory) code is roughly:
-for (i = 0; i < 16; i++)
-	mem[i] = color // where color is a shade of FF/16 * i if switch is on SW[2:0] for {R, G, B}
-
-The RFM (read from memory) is synced with the VGA display which goes row by row
-for (i = 0; i < 480; i++) // height
-	for (j = 0; j < 640; j++) // width
-		color = mem[(i/120 * 4) + j/160] OR just use x, y coming from vga_driver
-		
-I later simplified and just used the x and y coming from the vga_driver and used it to calculate the memory load.
-		
-*/
-
-always @(posedge clk or negedge rst)
-begin
-	if (rst == 1'b0)
-	begin
-		frame_buf_mem_address <= 14'd0;
-		frame_buf_mem_data <= 24'd0;
-		frame_buf_mem_wren <= 1'd0;
-		i <= 16'd0;
-		
-	end
-	else
-	begin
-		case (S)
-			START:
-			begin
-				frame_buf_mem_address <= 14'd0;
-				frame_buf_mem_data <= 24'd0;
-				frame_buf_mem_wren <= 1'd0;
-				i <= 16'd0;
-			end
-			W2M_INIT:
-			begin
-				frame_buf_mem_address <= 14'd0;
-				frame_buf_mem_data <= 24'd0;
-				frame_buf_mem_wren <= 1'd1;
-				i <= 16'd0;
-			end
-			W2M_COND:
-			begin
-			end
-			W2M_INC: 
-			begin
-				i <= i + 1'b1;
-				frame_buf_mem_address <= frame_buf_mem_address + 1'b1;
-				frame_buf_mem_data <= {red, green, blue}; // done in the combinational part below
-			end
-			RFM_INIT: 
-			begin
-				frame_buf_mem_wren <= 1'd0; // turn off writing to memory
-				// y and x come from the vga_driver module as it progresses through the drawing of the page
-				if (y < HEIGHT && x < WIDTH)
-					frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT) * LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
-			end
-			RFM_DRAWING:
-			begin
-				// y and x come from the vga_driver module as it progresses through the drawing of the page
-				if (y < HEIGHT && x < WIDTH)
-					frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT) * LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
-			end	
-		endcase
-	end
+// ----------------------------------------------------
+// STATE REGISTER
+// ----------------------------------------------------
+always @(posedge clk or negedge rst) begin
+    if (!rst) begin
+        S  <= START;
+    end else begin
+        S  <= NS;
+    end
 end
 
-reg [7:0]red;
-reg [7:0]green;
-reg [7:0]blue;
+// ----------------------------------------------------
+// SEQUENTIAL: WRITE/READ CONTROL + j / blkx UPDATE
+// ----------------------------------------------------
+always @(posedge clk or negedge rst) begin
+    if (!rst) begin
+        frame_buf_mem_address <= 14'd0;
+        frame_buf_mem_data    <= 24'd0;
+        frame_buf_mem_wren    <= 1'b0;
+        i                     <= 16'd0;
+        j                     <= 8'd0;
+        blkx                  <= 1'b1; // "previous was OFF"
+    end else begin
+        case (S)
+            START: begin
+                frame_buf_mem_address <= 14'd0;
+                frame_buf_mem_data    <= 24'd0;
+                frame_buf_mem_wren    <= 1'b0;
+                i                     <= 16'd0;
+                j                     <= 8'd0;
+                blkx                  <= 1'b1;
+            end
+
+            // Start a new write pass
+            W2M_INIT: begin
+                frame_buf_mem_address <= 14'd0;
+                frame_buf_mem_data    <= 24'd0;
+                frame_buf_mem_wren    <= 1'b1;
+                i                     <= 16'd0;
+                j                     <= 8'd0;   // restart color bit index
+                blkx                  <= 1'b1;   // treat "previous" as OFF
+            end
+
+            W2M_COND: begin
+                // nothing to do here; controlled by NS logic
+            end
+
+            // Write one pixel's worth of RGB to the framebuffer
+            W2M_INC: begin
+                i                     <= i + 1'b1;
+                frame_buf_mem_address <= frame_buf_mem_address + 1'b1;
+                frame_buf_mem_data    <= {red, green, blue};  // from combinational block
+
+                // UPDATE j/blkx *synchronously*
+                if (bitmap_rom[i] == 1'b0) begin
+                    // Current bitmap cell is OFF -> mark as OFF
+                    blkx <= 1'b1;
+                end else begin
+                    // Current bitmap cell is ON
+                    // If previous cell was OFF, this is the *first* pixel of a sticker.
+                    // So advance j to point to the next sticker's 3-bit color for NEXT time.
+                    if (blkx == 1'b1) begin
+                        blkx <= 1'b0;
+                        j    <= j + 3;  // 3 bits per sticker color
+                    end else begin
+                        blkx <= 1'b0;   // stay in "ON" run, j unchanged
+                    end
+                end
+            end
+
+            // Read phase: map x/y to framebuffer address
+            RFM_INIT: begin
+                frame_buf_mem_wren <= 1'b0; // turn off writing
+                if (y < HEIGHT && x < WIDTH)
+                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT) * LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
+            end
+
+            RFM_DRAWING: begin
+                if (y < HEIGHT && x < WIDTH)
+                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT) * LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
+            end
+
+            default: begin
+                // do nothing
+            end
+        endcase
+    end
+end
+
+// ----------------------------------------------------
+// COMBINATIONAL: COLOR MAPPING (NO STATE UPDATES)
+// ----------------------------------------------------
+reg [7:0] red;
+reg [7:0] green;
+reg [7:0] blue;
+reg [2:0] packedColor;
 
 always @(*) begin
-	if(i==0)begin
-	j=8'b0;
-	end
+    // Always show what's in memory on the VGA outputs
+    {VGA_R, VGA_G, VGA_B} = frame_buf_mem_q;
 
-    // Reading phase → output memory contents
-    if (S == RFM_INIT || S == RFM_DRAWING)
-        {VGA_R, VGA_G, VGA_B} = frame_buf_mem_q;
-    else
-        {VGA_R, VGA_G, VGA_B} = 24'h000000; // black during write phase
+    // Default RGB if bitmap cell is OFF
+    red   = 8'h00;
+    green = 8'h00;
+    blue  = 8'h00;
+    packedColor = 3'b000;
 
+    // Only compute a color when we're in the write phase and the bitmap cell is ON
+    // (During read phase, `red/green/blue` only matter indirectly via previous W2M pass).
+    if (bitmap_rom[i] == 1'b1) begin
+        // NOTE: j points to the *current* sticker's 3-bit color in `color`.
+        packedColor[0] = color[j];
+        packedColor[1] = color[j+1];
+        packedColor[2] = color[j+2];
 
-    // Writing phase: check bitmap for each block
-	 
-    if(bitmap_rom[i]==1'b1) begin
-	 if (offCount>=64 && offCount<=128) begin
-	     offCount=8'b0;
-		  j = j-jCount;
-		  jCount=0;
-		  end
-        packedColor[0]=color[j];
-        packedColor[1]=color[j+1];
-        packedColor[2]=color[j+2];
-		 if(blkx) begin
-        blkx = 1'b0;
-		  j = j+3;
-		  jCount = jCount+3;
-		  end 
-		  if(packedColor == 3'b000)begin
-		  red   = 8'hFF;
-		  green = 8'hFF;
-		  blue  = 8'hFF;
-		  end else if (packedColor == 3'b001)begin
-		  red   = 8'hFF;
-		  green = 8'h40;
-		  blue  = 8'h00;
-		  end else if (packedColor == 3'b010)begin
-		  red   = 8'h00;
-		  green = 8'hFF;
-		  blue  = 8'h00;
-		  end else if (packedColor == 3'b011)begin
-		  red   = 8'hFF;
-		  green = 8'h00;
-		  blue  = 8'h00;
-		  end else if (packedColor == 3'b100)begin
-		  red   = 8'h00;
-		  green = 8'h00;
-		  blue  = 8'hFF;
-		  end else if (packedColor == 3'b101)begin
-		  red   = 8'hFF;
-		  green = 8'hFF;
-		  blue  = 8'h00;
-		  end else begin
-		  red   = 8'hFF;
-		  green = 8'h00;
-		  blue  = 8'hFF;
-		  end
+        // Map 3-bit packedColor to RGB
+        if      (packedColor == 3'b000) begin
+            red   = 8'hFF;
+            green = 8'hFF;
+            blue  = 8'hFF;
+        end else if (packedColor == 3'b001) begin
+            red   = 8'hFF;
+            green = 8'h40;
+            blue  = 8'h00;
+        end else if (packedColor == 3'b010) begin
+            red   = 8'h00;
+            green = 8'hFF;
+            blue  = 8'h00;
+        end else if (packedColor == 3'b011) begin
+            red   = 8'hFF;
+            green = 8'h00;
+            blue  = 8'h00;
+        end else if (packedColor == 3'b100) begin
+            red   = 8'h00;
+            green = 8'h00;
+            blue  = 8'hFF;
+        end else if (packedColor == 3'b101) begin
+            red   = 8'hFF;
+            green = 8'hFF;
+            blue  = 8'h00;
+        end else begin
+            // fallback / error color (magenta)
+            red   = 8'hFF;
+            green = 8'h00;
+            blue  = 8'hFF;
+        end
     end
-    else begin
-        // Block is "off"
-		  offCount = offCount+1;
-		  blkx = 1'b1;
-        red   = 8'h00;
-        green = 8'h00;
-        blue  = 8'h00;
-		  
-    end
-
 end
 
-
-
 endmodule
-
-
