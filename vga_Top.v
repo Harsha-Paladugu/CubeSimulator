@@ -16,7 +16,12 @@ module vga_Top	(
 );
 
 // ----------------------------------------------------
-// BITMAP ROM
+// UNUSED SWITCH DEBOUNCE WIRE (FROM ORIGINAL DESIGN)
+// ----------------------------------------------------
+wire [17:0] SW_db;  // unused but keeping for now
+
+// ----------------------------------------------------
+// BITMAP ROM (CUBE NET SHAPE)
 // ----------------------------------------------------
 reg [0:0] bitmap_rom [0:3072];
 
@@ -27,6 +32,7 @@ initial begin
         bitmap_rom[i_init] = 1'b0;
     end
 
+    // Your cube squares:
     bitmap_rom[652]  = 1'b1;
     bitmap_rom[655]  = 1'b1;
     bitmap_rom[658]  = 1'b1;
@@ -88,48 +94,35 @@ initial begin
 end
 
 // ----------------------------------------------------
-// VGA TIMING SIGNALS (standard 640x480@60Hz)
+// VGA DRIVER (TIMING) – UNCHANGED
 // ----------------------------------------------------
-assign VGA_SYNC_N  = 1'b0;  // not used
-assign VGA_BLANK_N = 1'b1;  // always drive video
+wire active_pixels;
+wire frame_done;
+wire [9:0] x;  // current x pixel
+wire [9:0] y;  // current y pixel
 
-reg [9:0] h_count;
-reg [9:0] v_count;
+vga_driver the_vga(
+    .clk(clk),
+    .rst(rst),
 
-// Horizontal timing
-wire h_end  = (h_count == 799);
-wire v_end  = (v_count == 524);
-wire h_sync = (h_count >= 656 && h_count < 752);
-wire v_sync = (v_count >= 490 && v_count < 492);
+    .vga_clk(VGA_CLK),
+    .hsync(VGA_HS),
+    .vsync(VGA_VS),
 
-assign VGA_HS  = ~h_sync;
-assign VGA_VS  = ~v_sync;
-assign VGA_CLK = clk;
+    .active_pixels(active_pixels),
+    .frame_done(frame_done),
 
-always @(posedge clk or negedge rst) begin
-    if (!rst) begin
-        h_count <= 10'd0;
-        v_count <= 10'd0;
-    end else begin
-        if (h_end) begin
-            h_count <= 10'd0;
-            if (v_end)
-                v_count <= 10'd0;
-            else
-                v_count <= v_count + 10'd1;
-        end else begin
-            h_count <= h_count + 10'd1;
-        end
-    end
-end
+    .xPixel(x),
+    .yPixel(y),
 
-wire [9:0] x = h_count;
-wire [9:0] y = v_count;
+    .VGA_BLANK_N(VGA_BLANK_N),
+    .VGA_SYNC_N(VGA_SYNC_N)
+);
 
 // ----------------------------------------------------
-// FRAMEBUFFER (64x48 = 3072 entries, 24 bits each)
+// MINI FRAMEBUFFER (64x48, 24-bit RGB)
 // ----------------------------------------------------
-reg  [13:0] frame_buf_mem_address;
+reg  [14:0] frame_buf_mem_address;
 reg  [23:0] frame_buf_mem_data;
 reg         frame_buf_mem_wren;
 wire [23:0] frame_buf_mem_q;
@@ -145,13 +138,20 @@ vga_frame vga_memory(
 // ----------------------------------------------------
 // FSM + INDEXING
 // ----------------------------------------------------
-reg [15:0] i;        // loop index for bitmap / framebuffer
+reg [15:0] i;        // loop index for bitmap / mini-framebuffer
 reg [7:0]  j;        // bit index into `color` (3 bits per sticker)
-reg [5:0]  sticker;  // which sticker (0..53) we are currently drawing
-reg        blkx;     // indicates whether previous bitmap cell was OFF
+reg        blkx;     // (unused, kept from original)
 reg [7:0]  S, NS;
 reg [2:0]  write_substate;
 
+// NEW: sticker index and mapping
+reg  [5:0] sticker;   // which cube sticker (0..53)
+reg  [5:0] cubeIdx;   // mapped cube sticker index (0..53)
+wire [2:0] cubeColor; // 3-bit color from cubeFlat
+
+// ----------------------------------------------------
+// STATE ENCODING & CONSTANTS
+// ----------------------------------------------------
 parameter 
     START        = 8'd0,
     W2M_INIT     = 8'd1,
@@ -161,13 +161,13 @@ parameter
     RFM_DRAWING  = 8'd5,
     ERROR        = 8'hFF;
 
-parameter LOOP_SIZE        = 16'd3072;
+parameter LOOP_SIZE        = 16'd3072;   // 64*48 cells
 parameter LOOP_I_SIZE      = 16'd64;
 parameter LOOP_Y_SIZE      = 16'd48;
 parameter WIDTH            = 16'd640;
 parameter HEIGHT           = 16'd480;
-parameter PIXELS_IN_WIDTH  = WIDTH/LOOP_I_SIZE;   // 10 pixels per cell
-parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE;  // 10 pixels per cell
+parameter PIXELS_IN_WIDTH  = WIDTH/LOOP_I_SIZE;   // 10
+parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE;  // 10
 
 // ----------------------------------------------------
 // NEXT STATE LOGIC
@@ -175,8 +175,6 @@ parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE;  // 10 pixels per cell
 always @(*) begin
     case (S)
         START:      NS = W2M_INIT;
-
-        // Fill framebuffer from bitmap + cube colors
         W2M_INIT:   NS = W2M_COND;
 
         W2M_COND: begin
@@ -186,23 +184,29 @@ always @(*) begin
                 NS = RFM_INIT;
         end
 
-        W2M_INC: begin
-            if (i < LOOP_SIZE)
-                NS = W2M_COND;
+        W2M_INC:    NS = W2M_COND;
+
+        // After a frame is done, go refresh framebuffer again
+        RFM_INIT: begin
+            if (frame_done == 1'b1)
+                NS = W2M_INIT;
             else
                 NS = RFM_INIT;
         end
 
-        // After writing, switch to read/draw mode
-        RFM_INIT:   NS = RFM_DRAWING;
-        RFM_DRAWING:NS = RFM_DRAWING;
+        RFM_DRAWING: begin
+            if (frame_done == 1'b1)
+                NS = W2M_INIT;
+            else
+                NS = RFM_DRAWING;
+        end
 
         default:    NS = ERROR;
     endcase
 end
 
 // ----------------------------------------------------
-// SEQUENTIAL: STATE REGISTER
+// STATE REGISTER
 // ----------------------------------------------------
 always @(posedge clk or negedge rst) begin
     if (!rst) begin
@@ -213,86 +217,87 @@ always @(posedge clk or negedge rst) begin
 end
 
 // ----------------------------------------------------
-// SEQUENTIAL: WRITE/READ CONTROL + j / blkx UPDATE
+// SEQUENTIAL: WRITE/READ CONTROL + j / sticker UPDATE
 // ----------------------------------------------------
 always @(posedge clk or negedge rst) begin
     if (!rst) begin
-        frame_buf_mem_address <= 14'd0;
+        frame_buf_mem_address <= 15'd0;
         frame_buf_mem_data    <= 24'd0;
         frame_buf_mem_wren    <= 1'b0;
         i                     <= 16'd0;
         j                     <= 8'd0;
         sticker               <= 6'd0;
-		  write_substate        <= 3'b000;
+        write_substate        <= 3'b000;
     end else begin
         case (S)
             START: begin
-                frame_buf_mem_address <= 14'd0;
+                frame_buf_mem_address <= 15'd0;
                 frame_buf_mem_data    <= 24'd0;
                 frame_buf_mem_wren    <= 1'b0;
                 i                     <= 16'd0;
                 j                     <= 8'd0;
                 sticker               <= 6'd0;
-					 write_substate        <= 3'b000;
+                write_substate        <= 3'b000;
             end
 
             // Start a new write pass
             W2M_INIT: begin
-                frame_buf_mem_address <= 14'd0;
+                frame_buf_mem_address <= 15'd0;
                 frame_buf_mem_data    <= 24'd0;
                 frame_buf_mem_wren    <= 1'b1;
                 i                     <= 16'd0;
-                j                     <= 8'd0;  
-                sticker               <= 6'd0;
-					write_substate        <= 3'b000; // restart color & sticker index
+                j                     <= 8'd0;
+                sticker               <= 6'd0;   // restart sticker index
+                write_substate        <= 3'b000;
             end
 
             W2M_COND: begin
-                // nothing to do here; controlled by NS logic
+                // nothing; controlled by NS logic
             end
 
-            // Write one pixel's worth of RGB to the framebuffer
+            // Write one cell's worth of RGB (2x2 block) to the mini framebuffer
             W2M_INC: begin
-    if (bitmap_rom[i] == 1'b1) begin
-        case (write_substate)
-            3'b000: begin
-                frame_buf_mem_address <= i;
-                frame_buf_mem_data    <= {red, green, blue};
-                write_substate        <= 3'b001;
+                if (bitmap_rom[i] == 1'b1) begin
+                    case (write_substate)
+                        3'b000: begin
+                            frame_buf_mem_address <= i;
+                            frame_buf_mem_data    <= {red, green, blue};
+                            write_substate        <= 3'b001;
+                        end
+
+                        3'b001: begin
+                            frame_buf_mem_address <= i + 1;
+                            frame_buf_mem_data    <= {red, green, blue};
+                            write_substate        <= 3'b010;
+                        end
+
+                        3'b010: begin
+                            frame_buf_mem_address <= i + LOOP_I_SIZE;  // +64
+                            frame_buf_mem_data    <= {red, green, blue};
+                            write_substate        <= 3'b011;
+                        end
+
+                        3'b011: begin
+                            frame_buf_mem_address <= i + LOOP_I_SIZE + 1; // +65
+                            frame_buf_mem_data    <= {red, green, blue};
+                            write_substate        <= 3'b100;
+                        end
+
+                        3'b100: begin
+                            // done writing this 2x2 block
+                            i        <= i + 1;
+                            j        <= j + 3;          // still increment, though we don't use it now
+                            sticker  <= sticker + 1'b1; // advance to next sticker
+                            write_substate <= 3'b000;
+                        end
+                    endcase
+                end else begin
+                    // OFF pixel: skip writing, just advance i
+                    i <= i + 1;
+                end
             end
 
-            3'b001: begin
-                frame_buf_mem_address <= i + 1;
-                frame_buf_mem_data    <= {red, green, blue};
-                write_substate        <= 3'b010;
-            end
-
-            3'b010: begin
-                frame_buf_mem_address <= i + LOOP_I_SIZE;  // = +64
-                frame_buf_mem_data    <= {red, green, blue};
-                write_substate        <= 3'b011;
-            end
-
-            3'b011: begin
-                frame_buf_mem_address <= i + LOOP_I_SIZE + 1; // = +65
-                frame_buf_mem_data    <= {red, green, blue};
-                write_substate        <= 3'b100;
-            end
-
-            3'b100: begin
-                // done writing this 2×2 block
-                i        <= i + 1;
-                j        <= j + 3;
-                sticker  <= sticker + 1'b1;
-                write_substate <= 3'b000;
-            end
-        endcase
-    end else begin
-        // OFF pixel: skip writing
-        i <= i + 1;
-    end
-end
-            // Read phase: map x/y to framebuffer address
+            // Read phase: map x/y to mini-framebuffer address
             RFM_INIT: begin
                 frame_buf_mem_wren <= 1'b0; // turn off writing
                 if (y < HEIGHT && x < WIDTH)
@@ -300,26 +305,25 @@ end
             end
 
             RFM_DRAWING: begin
-                // nothing sequential here; address already set in RFM_INIT
+                if (y < HEIGHT && x < WIDTH)
+                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT) * LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
             end
 
             default: begin
-                // should not happen
-                frame_buf_mem_wren <= 1'b0;
+                // do nothing
             end
         endcase
     end
 end
 
 // ----------------------------------------------------
-// STICKER → CUBE INDEX MAPPING
+// STICKER → CUBE INDEX MAPPING (0..53 → 0..53)
 // ----------------------------------------------------
-reg  [5:0] cubeIdx;      // index 0..53 into packed color[]
-wire [2:0] cubeColor;
-
+// Your logical cube uses:
+// U: 0–8, R: 9–17, F: 18–26, L: 27–35, B: 36–44, D: 45–53
 always @(*) begin
     case (sticker)
-        // U face (already aligned)
+        // U face
         6'd0  : cubeIdx = 6'd0;
         6'd1  : cubeIdx = 6'd1;
         6'd2  : cubeIdx = 6'd2;
@@ -330,7 +334,7 @@ always @(*) begin
         6'd7  : cubeIdx = 6'd7;
         6'd8  : cubeIdx = 6'd8;
 
-        // Side belt mapping (R, F, L, B)
+        // Side belt (R, F, L, B) – remapped
         6'd9  : cubeIdx = 6'd9;
         6'd10 : cubeIdx = 6'd10;
         6'd11 : cubeIdx = 6'd11;
@@ -368,7 +372,7 @@ always @(*) begin
         6'd40 : cubeIdx = 6'd34;
         6'd41 : cubeIdx = 6'd35;
 
-        // B and D faces already aligned
+        // B + D faces aligned 1:1
         6'd42 : cubeIdx = 6'd42;
         6'd43 : cubeIdx = 6'd43;
         6'd44 : cubeIdx = 6'd44;
@@ -386,6 +390,7 @@ always @(*) begin
     endcase
 end
 
+// Pull 3-bit color for this cube sticker from packed `color` (cubeFlat)
 assign cubeColor = { color[3*cubeIdx+2], color[3*cubeIdx+1], color[3*cubeIdx] };
 
 // ----------------------------------------------------
@@ -407,33 +412,39 @@ always @(*) begin
     packedColor = 3'b000;
 
     // Only compute a color when we're in the write phase and the bitmap cell is ON
-    // (During read phase, `red/green/blue` only matter indirectly via previous W2M pass).
+    // (During read phase, red/green/blue only matter indirectly via previous W2M pass.)
     if (bitmap_rom[i] == 1'b1) begin
-        // Use mapped cubeColor for this sticker
+        // Use mapped cubeColor for this sticker instead of j-based bits
         packedColor = cubeColor;
 
         // Map 3-bit packedColor to RGB
         if      (packedColor == 3'b000) begin
+            // white
             red   = 8'hFF;
             green = 8'hFF;
             blue  = 8'hFF;
         end else if (packedColor == 3'b001) begin
+            // orange
             red   = 8'hFF;
             green = 8'h40;
             blue  = 8'h00;
         end else if (packedColor == 3'b010) begin
+            // green
             red   = 8'h00;
             green = 8'hFF;
             blue  = 8'h00;
         end else if (packedColor == 3'b011) begin
+            // red
             red   = 8'hFF;
             green = 8'h00;
             blue  = 8'h00;
         end else if (packedColor == 3'b100) begin
+            // blue
             red   = 8'h00;
             green = 8'h00;
             blue  = 8'hFF;
         end else if (packedColor == 3'b101) begin
+            // yellow
             red   = 8'hFF;
             green = 8'hFF;
             blue  = 8'h00;
