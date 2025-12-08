@@ -19,18 +19,15 @@ module cubeState (
     always @(*) begin
 			// 1. Copy current cube into tmp
 			j = 0;
-		for (i = 0; i < 162; i = i+3) begin
-				tmp[j][0] = cubeState[i];
-				tmp[j][1] = cubeState[i+1];
-				tmp[j][2] = cubeState[i+2];
-				j = j + 1;
+		for (i = 0; i < 54; i = i+1) begin
+				tmp[i] = cubeState[3*i +: 3];
 		end
 
 			// 2. Select Move to make and perform swap
 			case (nextFaceMove)
 			
 				6'd0: begin														// U face
-					for(k = 0; k < nextRotation + 1 ; k = k + 1) begin	// Perform move nextRotation # of times 
+					for(k = 0; k < nextRotation ; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
 						
@@ -80,7 +77,7 @@ module cubeState (
 				end // end U case
 				
 				6'd1: begin														// L face
-					for(k = 0; k < nextRotation + 1; k = k + 1) begin	// Perform move nextRotation # of times 
+					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
 						
@@ -130,7 +127,7 @@ module cubeState (
 				end // end L case
 				
 				6'd2: begin														// F face
-					for(k = 0; k < nextRotation + 1; k = k + 1) begin	// Perform move nextRotation # of times 
+					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
 						
@@ -180,7 +177,7 @@ module cubeState (
 				end // end F case
 				
 				6'd3: begin														// R face
-					for(k = 0; k < nextRotation + 1; k = k + 1) begin	// Perform move nextRotation # of times 
+					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
 						
@@ -229,7 +226,7 @@ module cubeState (
 					end // end for loop
 				end // end R case	
 				6'd4: begin														// B face
-					for(k = 0; k < nextRotation + 1; k = k + 1) begin	// Perform move nextRotation # of times 
+					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
 						
@@ -279,7 +276,7 @@ module cubeState (
 				end // end B case
 
 				6'd5: begin														// D face
-					for(k = 0; k < nextRotation + 1; k = k + 1) begin	// Perform move nextRotation # of times 
+					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
 						
@@ -300,8 +297,8 @@ module cubeState (
 						// LDF -> FDR -> RDB -> BDL -> LDF
 						tmpIndex = tmp[17];
 						tmp[17] = tmp[44];
-						tmp[44] = tmp[34];
-						tmp[34] = tmp[26];
+						tmp[44] = tmp[35];
+						tmp[35] = tmp[26];
 						tmp[26] = tmpIndex;
 						
 						// ***Corner Swaps Complete***
@@ -327,12 +324,21 @@ module cubeState (
 						// *** Move Complete***
 					end // end for loop
 				end // end D case
+				
+				default: begin
+				end
 			endcase
 
 			for (i = 0; i < 54; i = i + 1) begin
-            cubeStateNew[3*i + 0] = tmp[i][0];
-            cubeStateNew[3*i + 1] = tmp[i][1];
-            cubeStateNew[3*i + 2] = tmp[i][2];
+            cubeStateNew[3*i +: 3] = tmp[i];
          end // end for
  end // end always
 endmodule
+
+
+// 0 = U
+// 1 = L
+// 2 = F
+// 3 = R
+// 4 = B
+// 5 = D

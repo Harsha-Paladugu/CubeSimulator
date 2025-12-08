@@ -143,6 +143,7 @@ reg [7:0]  j;        // bit index into `color` (3 bits per sticker)
 reg        blkx;     // indicates whether previous bitmap cell was OFF
 reg [7:0]  S, NS;
 reg [2:0] write_substate;
+reg [5:0] sticker;
 
 
 parameter 
@@ -220,6 +221,7 @@ always @(posedge clk or negedge rst) begin
         i                     <= 16'd0;
         j                     <= 8'd0;
 		  write_substate <= 3'b000;
+		  sticker <= 6'd0;
     end else begin
         case (S)
             START: begin
@@ -228,6 +230,7 @@ always @(posedge clk or negedge rst) begin
                 frame_buf_mem_wren    <= 1'b0;
                 i                     <= 16'd0;
                 j                     <= 8'd0;
+					 sticker <= 6'd0;
 					 write_substate <= 3'b000;
             end
 
@@ -238,6 +241,7 @@ always @(posedge clk or negedge rst) begin
                 frame_buf_mem_wren    <= 1'b1;
                 i                     <= 16'd0;
                 j                     <= 8'd0;  
+					 sticker <= 6'd0;
 					write_substate <= 3'b000; // restart color bit index
             end
 
@@ -278,6 +282,7 @@ always @(posedge clk or negedge rst) begin
                 i <= i + 1;
                 j <= j + 3;
                 write_substate <= 3'b000;
+					 sticker <= sticker + 1'b1;
             end
         endcase
     end else begin
@@ -305,6 +310,84 @@ end
 end
 
 // ----------------------------------------------------
+// STICKER → CUBE INDEX MAPPING
+// ----------------------------------------------------
+reg  [5:0] cubeIdx;      // index 0..53 into packed color[]
+wire [2:0] cubeColor;
+
+always @(*) begin
+    case (sticker)
+        // U face (already aligned)
+        6'd0  : cubeIdx = 6'd0;
+        6'd1  : cubeIdx = 6'd1;
+        6'd2  : cubeIdx = 6'd2;
+        6'd3  : cubeIdx = 6'd3;
+        6'd4  : cubeIdx = 6'd4;
+        6'd5  : cubeIdx = 6'd5;
+        6'd6  : cubeIdx = 6'd6;
+        6'd7  : cubeIdx = 6'd7;
+        6'd8  : cubeIdx = 6'd8;
+
+        // Side belt mapping (R, F, L, B)
+        6'd9  : cubeIdx = 6'd9;
+        6'd10 : cubeIdx = 6'd10;
+        6'd11 : cubeIdx = 6'd11;
+
+        6'd12 : cubeIdx = 6'd18;
+        6'd13 : cubeIdx = 6'd19;
+        6'd14 : cubeIdx = 6'd20;
+        6'd15 : cubeIdx = 6'd27;
+        6'd16 : cubeIdx = 6'd28;
+        6'd17 : cubeIdx = 6'd29;
+        6'd18 : cubeIdx = 6'd36;
+        6'd19 : cubeIdx = 6'd37;
+        6'd20 : cubeIdx = 6'd38;
+
+        6'd21 : cubeIdx = 6'd12;
+        6'd22 : cubeIdx = 6'd13;
+        6'd23 : cubeIdx = 6'd14;
+        6'd24 : cubeIdx = 6'd21;
+        6'd25 : cubeIdx = 6'd22;
+        6'd26 : cubeIdx = 6'd23;
+        6'd27 : cubeIdx = 6'd30;
+        6'd28 : cubeIdx = 6'd31;
+        6'd29 : cubeIdx = 6'd32;
+        6'd30 : cubeIdx = 6'd39;
+        6'd31 : cubeIdx = 6'd40;
+        6'd32 : cubeIdx = 6'd41;
+
+        6'd33 : cubeIdx = 6'd15;
+        6'd34 : cubeIdx = 6'd16;
+        6'd35 : cubeIdx = 6'd17;
+        6'd36 : cubeIdx = 6'd24;
+        6'd37 : cubeIdx = 6'd25;
+        6'd38 : cubeIdx = 6'd26;
+        6'd39 : cubeIdx = 6'd33;
+        6'd40 : cubeIdx = 6'd34;
+        6'd41 : cubeIdx = 6'd35;
+
+        // B and D faces already aligned
+        6'd42 : cubeIdx = 6'd42;
+        6'd43 : cubeIdx = 6'd43;
+        6'd44 : cubeIdx = 6'd44;
+        6'd45 : cubeIdx = 6'd45;
+        6'd46 : cubeIdx = 6'd46;
+        6'd47 : cubeIdx = 6'd47;
+        6'd48 : cubeIdx = 6'd48;
+        6'd49 : cubeIdx = 6'd49;
+        6'd50 : cubeIdx = 6'd50;
+        6'd51 : cubeIdx = 6'd51;
+        6'd52 : cubeIdx = 6'd52;
+        6'd53 : cubeIdx = 6'd53;
+
+        default: cubeIdx = 6'd0;
+    endcase
+end
+
+assign cubeColor = { color[3*cubeIdx+2], color[3*cubeIdx+1], color[3*cubeIdx] };
+
+
+// ----------------------------------------------------
 // COMBINATIONAL: COLOR MAPPING (NO STATE UPDATES)
 // ----------------------------------------------------
 reg [7:0] red;
@@ -326,9 +409,7 @@ always @(*) begin
     // (During read phase, `red/green/blue` only matter indirectly via previous W2M pass).
     if (bitmap_rom[i] == 1'b1) begin
         // NOTE: j points to the *current* sticker's 3-bit color in `color`.
-        packedColor[0] = color[j];
-        packedColor[1] = color[j+1];
-        packedColor[2] = color[j+2];
+        packedColor = cubeColor;
 
         // Map 3-bit packedColor to RGB
         if      (packedColor == 3'b000) begin
@@ -337,7 +418,7 @@ always @(*) begin
             blue  = 8'hFF;
         end else if (packedColor == 3'b001) begin
             red   = 8'hFF;
-            green = 8'h40;
+            green = 8'h6E;
             blue  = 8'h00;
         end else if (packedColor == 3'b010) begin
             red   = 8'h00;
@@ -353,8 +434,9 @@ always @(*) begin
             blue  = 8'hFF;
         end else if (packedColor == 3'b101) begin
             red   = 8'hFF;
-            green = 8'hFF;
-            blue  = 8'h00;
+            green = 8'hF2;
+            blue  = 8'h00
+				;
         end else begin
             // fallback / error color (magenta)
             red   = 8'hFF;
