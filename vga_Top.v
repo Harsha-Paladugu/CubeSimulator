@@ -16,10 +16,8 @@ module vga_Top	(
 );
 
 // ----------------------------------------------------
-// BITMAP ROM (unchanged)
+// BITMAP ROM
 // ----------------------------------------------------
-wire [17:0] SW_db;  // unused but keeping for now
-
 reg [0:0] bitmap_rom [0:3072];
 
 integer i_init;
@@ -29,100 +27,109 @@ initial begin
         bitmap_rom[i_init] = 1'b0;
     end
 
-bitmap_rom[652] = 1'b1;
-bitmap_rom[655] = 1'b1;
-bitmap_rom[658] = 1'b1;
-bitmap_rom[844] = 1'b1;
-bitmap_rom[847] = 1'b1;
-bitmap_rom[850] = 1'b1;
-bitmap_rom[1036] = 1'b1;
-bitmap_rom[1039] = 1'b1;
-bitmap_rom[1042] = 1'b1;
+    bitmap_rom[652]  = 1'b1;
+    bitmap_rom[655]  = 1'b1;
+    bitmap_rom[658]  = 1'b1;
+    bitmap_rom[844]  = 1'b1;
+    bitmap_rom[847]  = 1'b1;
+    bitmap_rom[850]  = 1'b1;
+    bitmap_rom[1036] = 1'b1;
+    bitmap_rom[1039] = 1'b1;
+    bitmap_rom[1042] = 1'b1;
 
-bitmap_rom[1282] = 1'b1;
-bitmap_rom[1285] = 1'b1;
-bitmap_rom[1288] = 1'b1;
-bitmap_rom[1292] = 1'b1;
-bitmap_rom[1295] = 1'b1;
-bitmap_rom[1298] = 1'b1;
-bitmap_rom[1302] = 1'b1;
-bitmap_rom[1305] = 1'b1;
-bitmap_rom[1308] = 1'b1;
+    bitmap_rom[1282] = 1'b1;
+    bitmap_rom[1285] = 1'b1;
+    bitmap_rom[1288] = 1'b1;
+    bitmap_rom[1292] = 1'b1;
+    bitmap_rom[1295] = 1'b1;
+    bitmap_rom[1298] = 1'b1;
+    bitmap_rom[1302] = 1'b1;
+    bitmap_rom[1305] = 1'b1;
+    bitmap_rom[1308] = 1'b1;
 
-bitmap_rom[1312] = 1'b1;
-bitmap_rom[1315] = 1'b1;
-bitmap_rom[1318] = 1'b1;
-bitmap_rom[1474] = 1'b1;
-bitmap_rom[1477] = 1'b1;
-bitmap_rom[1480] = 1'b1;
-bitmap_rom[1484] = 1'b1;
-bitmap_rom[1487] = 1'b1;
-bitmap_rom[1490] = 1'b1;
-bitmap_rom[1494] = 1'b1;
-bitmap_rom[1497] = 1'b1;
-bitmap_rom[1500] = 1'b1;
-bitmap_rom[1504] = 1'b1;
-bitmap_rom[1507] = 1'b1;
-bitmap_rom[1510] = 1'b1;
+    bitmap_rom[1312] = 1'b1;
+    bitmap_rom[1315] = 1'b1;
+    bitmap_rom[1318] = 1'b1;
+    bitmap_rom[1474] = 1'b1;
+    bitmap_rom[1477] = 1'b1;
+    bitmap_rom[1480] = 1'b1;
+    bitmap_rom[1484] = 1'b1;
+    bitmap_rom[1487] = 1'b1;
+    bitmap_rom[1490] = 1'b1;
+    bitmap_rom[1494] = 1'b1;
+    bitmap_rom[1497] = 1'b1;
+    bitmap_rom[1500] = 1'b1;
+    bitmap_rom[1504] = 1'b1;
+    bitmap_rom[1507] = 1'b1;
+    bitmap_rom[1510] = 1'b1;
 
-bitmap_rom[1666] = 1'b1;
-bitmap_rom[1669] = 1'b1;
-bitmap_rom[1672] = 1'b1;
-bitmap_rom[1676] = 1'b1;
-bitmap_rom[1679] = 1'b1;
-bitmap_rom[1682] = 1'b1;
-bitmap_rom[1686] = 1'b1;
-bitmap_rom[1689] = 1'b1;
-bitmap_rom[1692] = 1'b1;
-bitmap_rom[1696] = 1'b1;
-bitmap_rom[1699] = 1'b1;
-bitmap_rom[1702] = 1'b1;
+    bitmap_rom[1666] = 1'b1;
+    bitmap_rom[1669] = 1'b1;
+    bitmap_rom[1672] = 1'b1;
+    bitmap_rom[1676] = 1'b1;
+    bitmap_rom[1679] = 1'b1;
+    bitmap_rom[1682] = 1'b1;
+    bitmap_rom[1686] = 1'b1;
+    bitmap_rom[1689] = 1'b1;
+    bitmap_rom[1692] = 1'b1;
+    bitmap_rom[1696] = 1'b1;
+    bitmap_rom[1699] = 1'b1;
+    bitmap_rom[1702] = 1'b1;
 
-bitmap_rom[1932] = 1'b1;
-bitmap_rom[1935] = 1'b1;
-bitmap_rom[1938] = 1'b1;
-bitmap_rom[2124] = 1'b1;
-bitmap_rom[2127] = 1'b1;
-bitmap_rom[2130] = 1'b1;
-bitmap_rom[2316] = 1'b1;
-bitmap_rom[2319] = 1'b1;
-bitmap_rom[2322] = 1'b1;
-
-
-
-
+    bitmap_rom[1932] = 1'b1;
+    bitmap_rom[1935] = 1'b1;
+    bitmap_rom[1938] = 1'b1;
+    bitmap_rom[2124] = 1'b1;
+    bitmap_rom[2127] = 1'b1;
+    bitmap_rom[2130] = 1'b1;
+    bitmap_rom[2316] = 1'b1;
+    bitmap_rom[2319] = 1'b1;
+    bitmap_rom[2322] = 1'b1;
 end
 
 // ----------------------------------------------------
-// VGA DRIVER
+// VGA TIMING SIGNALS (standard 640x480@60Hz)
 // ----------------------------------------------------
-wire active_pixels;
-wire frame_done;
-wire [9:0] x;  // current x
-wire [9:0] y;  // current y
+assign VGA_SYNC_N  = 1'b0;  // not used
+assign VGA_BLANK_N = 1'b1;  // always drive video
 
-vga_driver the_vga(
-    .clk(clk),
-    .rst(rst),
+reg [9:0] h_count;
+reg [9:0] v_count;
 
-    .vga_clk(VGA_CLK),
-    .hsync(VGA_HS),
-    .vsync(VGA_VS),
+// Horizontal timing
+wire h_end  = (h_count == 799);
+wire v_end  = (v_count == 524);
+wire h_sync = (h_count >= 656 && h_count < 752);
+wire v_sync = (v_count >= 490 && v_count < 492);
 
-    .active_pixels(active_pixels),
-    .frame_done(frame_done),
+assign VGA_HS  = ~h_sync;
+assign VGA_VS  = ~v_sync;
+assign VGA_CLK = clk;
 
-    .xPixel(x),
-    .yPixel(y),
+always @(posedge clk or negedge rst) begin
+    if (!rst) begin
+        h_count <= 10'd0;
+        v_count <= 10'd0;
+    end else begin
+        if (h_end) begin
+            h_count <= 10'd0;
+            if (v_end)
+                v_count <= 10'd0;
+            else
+                v_count <= v_count + 10'd1;
+        end else begin
+            h_count <= h_count + 10'd1;
+        end
+    end
+end
 
-    .VGA_BLANK_N(VGA_BLANK_N),
-    .VGA_SYNC_N(VGA_SYNC_N)
-);
+wire [9:0] x = h_count;
+wire [9:0] y = v_count;
 
 // ----------------------------------------------------
-// MINI FRAMEBUFFER
+// FRAMEBUFFER (64x48 = 3072 entries, 24 bits each)
 // ----------------------------------------------------
-reg  [14:0] frame_buf_mem_address;
+reg  [13:0] frame_buf_mem_address;
 reg  [23:0] frame_buf_mem_data;
 reg         frame_buf_mem_wren;
 wire [23:0] frame_buf_mem_q;
@@ -140,10 +147,10 @@ vga_frame vga_memory(
 // ----------------------------------------------------
 reg [15:0] i;        // loop index for bitmap / framebuffer
 reg [7:0]  j;        // bit index into `color` (3 bits per sticker)
+reg [5:0]  sticker;  // which sticker (0..53) we are currently drawing
 reg        blkx;     // indicates whether previous bitmap cell was OFF
 reg [7:0]  S, NS;
-reg [2:0] write_substate;
-
+reg [2:0]  write_substate;
 
 parameter 
     START        = 8'd0,
@@ -159,8 +166,8 @@ parameter LOOP_I_SIZE      = 16'd64;
 parameter LOOP_Y_SIZE      = 16'd48;
 parameter WIDTH            = 16'd640;
 parameter HEIGHT           = 16'd480;
-parameter PIXELS_IN_WIDTH  = WIDTH/LOOP_I_SIZE;   // 160
-parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE;  // 120
+parameter PIXELS_IN_WIDTH  = WIDTH/LOOP_I_SIZE;   // 10 pixels per cell
+parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE;  // 10 pixels per cell
 
 // ----------------------------------------------------
 // NEXT STATE LOGIC
@@ -168,6 +175,8 @@ parameter PIXELS_IN_HEIGHT = HEIGHT/LOOP_Y_SIZE;  // 120
 always @(*) begin
     case (S)
         START:      NS = W2M_INIT;
+
+        // Fill framebuffer from bitmap + cube colors
         W2M_INIT:   NS = W2M_COND;
 
         W2M_COND: begin
@@ -177,35 +186,29 @@ always @(*) begin
                 NS = RFM_INIT;
         end
 
-        W2M_INC: NS = W2M_COND;
-
-        // After a frame is done, go refresh framebuffer again
-        RFM_INIT: begin
-            if (frame_done == 1'b1)
-                NS = W2M_INIT;
+        W2M_INC: begin
+            if (i < LOOP_SIZE)
+                NS = W2M_COND;
             else
                 NS = RFM_INIT;
         end
 
-        RFM_DRAWING: begin
-            if (frame_done == 1'b1)
-                NS = W2M_INIT;
-            else
-                NS = RFM_DRAWING;
-        end
+        // After writing, switch to read/draw mode
+        RFM_INIT:   NS = RFM_DRAWING;
+        RFM_DRAWING:NS = RFM_DRAWING;
 
         default:    NS = ERROR;
     endcase
 end
 
 // ----------------------------------------------------
-// STATE REGISTER
+// SEQUENTIAL: STATE REGISTER
 // ----------------------------------------------------
 always @(posedge clk or negedge rst) begin
     if (!rst) begin
-        S  <= START;
+        S <= START;
     end else begin
-        S  <= NS;
+        S <= NS;
     end
 end
 
@@ -219,7 +222,8 @@ always @(posedge clk or negedge rst) begin
         frame_buf_mem_wren    <= 1'b0;
         i                     <= 16'd0;
         j                     <= 8'd0;
-		  write_substate <= 3'b000;
+        sticker               <= 6'd0;
+		  write_substate        <= 3'b000;
     end else begin
         case (S)
             START: begin
@@ -228,7 +232,8 @@ always @(posedge clk or negedge rst) begin
                 frame_buf_mem_wren    <= 1'b0;
                 i                     <= 16'd0;
                 j                     <= 8'd0;
-					 write_substate <= 3'b000;
+                sticker               <= 6'd0;
+					 write_substate        <= 3'b000;
             end
 
             // Start a new write pass
@@ -238,7 +243,8 @@ always @(posedge clk or negedge rst) begin
                 frame_buf_mem_wren    <= 1'b1;
                 i                     <= 16'd0;
                 j                     <= 8'd0;  
-					write_substate <= 3'b000; // restart color bit index
+                sticker               <= 6'd0;
+					write_substate        <= 3'b000; // restart color & sticker index
             end
 
             W2M_COND: begin
@@ -275,8 +281,9 @@ always @(posedge clk or negedge rst) begin
 
             3'b100: begin
                 // done writing this 2×2 block
-                i <= i + 1;
-                j <= j + 3;
+                i        <= i + 1;
+                j        <= j + 3;
+                sticker  <= sticker + 1'b1;
                 write_substate <= 3'b000;
             end
         endcase
@@ -293,16 +300,93 @@ end
             end
 
             RFM_DRAWING: begin
-                if (y < HEIGHT && x < WIDTH)
-                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT) * LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
+                // nothing sequential here; address already set in RFM_INIT
             end
 
             default: begin
-                // do nothing
+                // should not happen
+                frame_buf_mem_wren <= 1'b0;
             end
         endcase
     end
 end
+
+// ----------------------------------------------------
+// STICKER → CUBE INDEX MAPPING
+// ----------------------------------------------------
+reg  [5:0] cubeIdx;      // index 0..53 into packed color[]
+wire [2:0] cubeColor;
+
+always @(*) begin
+    case (sticker)
+        // U face (already aligned)
+        6'd0  : cubeIdx = 6'd0;
+        6'd1  : cubeIdx = 6'd1;
+        6'd2  : cubeIdx = 6'd2;
+        6'd3  : cubeIdx = 6'd3;
+        6'd4  : cubeIdx = 6'd4;
+        6'd5  : cubeIdx = 6'd5;
+        6'd6  : cubeIdx = 6'd6;
+        6'd7  : cubeIdx = 6'd7;
+        6'd8  : cubeIdx = 6'd8;
+
+        // Side belt mapping (R, F, L, B)
+        6'd9  : cubeIdx = 6'd9;
+        6'd10 : cubeIdx = 6'd10;
+        6'd11 : cubeIdx = 6'd11;
+
+        6'd12 : cubeIdx = 6'd18;
+        6'd13 : cubeIdx = 6'd19;
+        6'd14 : cubeIdx = 6'd20;
+        6'd15 : cubeIdx = 6'd27;
+        6'd16 : cubeIdx = 6'd28;
+        6'd17 : cubeIdx = 6'd29;
+        6'd18 : cubeIdx = 6'd36;
+        6'd19 : cubeIdx = 6'd37;
+        6'd20 : cubeIdx = 6'd38;
+
+        6'd21 : cubeIdx = 6'd12;
+        6'd22 : cubeIdx = 6'd13;
+        6'd23 : cubeIdx = 6'd14;
+        6'd24 : cubeIdx = 6'd21;
+        6'd25 : cubeIdx = 6'd22;
+        6'd26 : cubeIdx = 6'd23;
+        6'd27 : cubeIdx = 6'd30;
+        6'd28 : cubeIdx = 6'd31;
+        6'd29 : cubeIdx = 6'd32;
+        6'd30 : cubeIdx = 6'd39;
+        6'd31 : cubeIdx = 6'd40;
+        6'd32 : cubeIdx = 6'd41;
+
+        6'd33 : cubeIdx = 6'd15;
+        6'd34 : cubeIdx = 6'd16;
+        6'd35 : cubeIdx = 6'd17;
+        6'd36 : cubeIdx = 6'd24;
+        6'd37 : cubeIdx = 6'd25;
+        6'd38 : cubeIdx = 6'd26;
+        6'd39 : cubeIdx = 6'd33;
+        6'd40 : cubeIdx = 6'd34;
+        6'd41 : cubeIdx = 6'd35;
+
+        // B and D faces already aligned
+        6'd42 : cubeIdx = 6'd42;
+        6'd43 : cubeIdx = 6'd43;
+        6'd44 : cubeIdx = 6'd44;
+        6'd45 : cubeIdx = 6'd45;
+        6'd46 : cubeIdx = 6'd46;
+        6'd47 : cubeIdx = 6'd47;
+        6'd48 : cubeIdx = 6'd48;
+        6'd49 : cubeIdx = 6'd49;
+        6'd50 : cubeIdx = 6'd50;
+        6'd51 : cubeIdx = 6'd51;
+        6'd52 : cubeIdx = 6'd52;
+        6'd53 : cubeIdx = 6'd53;
+
+        default: cubeIdx = 6'd0;
+    endcase
+end
+
+assign cubeColor = { color[3*cubeIdx+2], color[3*cubeIdx+1], color[3*cubeIdx] };
 
 // ----------------------------------------------------
 // COMBINATIONAL: COLOR MAPPING (NO STATE UPDATES)
@@ -317,18 +401,16 @@ always @(*) begin
     {VGA_R, VGA_G, VGA_B} = frame_buf_mem_q;
 
     // Default RGB if bitmap cell is OFF
-    red   = 8'h00;
-    green = 8'h00;
-    blue  = 8'h00;
+    red         = 8'h00;
+    green       = 8'h00;
+    blue        = 8'h00;
     packedColor = 3'b000;
 
     // Only compute a color when we're in the write phase and the bitmap cell is ON
     // (During read phase, `red/green/blue` only matter indirectly via previous W2M pass).
     if (bitmap_rom[i] == 1'b1) begin
-        // NOTE: j points to the *current* sticker's 3-bit color in `color`.
-        packedColor[0] = color[j];
-        packedColor[1] = color[j+1];
-        packedColor[2] = color[j+2];
+        // Use mapped cubeColor for this sticker
+        packedColor = cubeColor;
 
         // Map 3-bit packedColor to RGB
         if      (packedColor == 3'b000) begin
