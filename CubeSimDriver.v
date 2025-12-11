@@ -291,7 +291,7 @@ module CubeSimDriver (
         end
     end
 
-    //================================================================
+     //================================================================
     // NEXT STATE LOGIC
     //================================================================
     always @(*) begin
@@ -308,11 +308,13 @@ module CubeSimDriver (
             SCRAMBLE:
                 NS = (scrambleCount == 6'd29) ? DISPLAY : SCRAMBLE;
 
+            // After a move, go check if it's solved
             MOVE:
-                NS = DISPLAY;
+                NS = VERIFY;
 
+            // In VERIFY, use solvedNow right away
             VERIFY:
-                NS = isSolved ? DONE : DISPLAY;
+                NS = solvedNow ? DONE : DISPLAY;
 
             DONE:
                 NS = DONE;
@@ -321,7 +323,6 @@ module CubeSimDriver (
                 NS = START;
         endcase
     end
-
     //================================================================
     // DEBUG LEDS
     //================================================================
@@ -329,3 +330,4 @@ module CubeSimDriver (
     assign LEDR[9:7] = 3'b000;
 
 endmodule
+
