@@ -231,7 +231,7 @@ module CubeSimDriver (
                 // INIT (SOLVED)
                 //------------------------------------------------------
                 START: begin
-                    for (i=0; i<54; i=i+1) begin
+                    for (i = 0; i < 54; i = i + 1) begin
                         if      (i < 9)   cubeFlat[3*i +: 3] <= 3'b000;
                         else if (i < 18)  cubeFlat[3*i +: 3] <= 3'b001;
                         else if (i < 27)  cubeFlat[3*i +: 3] <= 3'b010;
@@ -252,7 +252,7 @@ module CubeSimDriver (
                     cubeFlat      <= cubeFlatNext;
                     scrambleCount <= scrambleCount + 1;
                     moveCount     <= 0;
-                    isSolved      <= 1'b0;   // definitely not solved while scrambling
+                    isSolved      <= 1'b0;
                 end
 
                 //------------------------------------------------------
@@ -311,8 +311,9 @@ module CubeSimDriver (
                     NS = SCRAMBLE;
                 else if (move_pulse)
                     NS = MOVE;
-                else if (solvedNow)
-                    NS = DONE;      // check solved AFTER the last move has applied
+                // only go to DONE if solved AND we've actually done something
+                else if (solvedNow && (moveCount != 0 || scrambleCount != 0))
+                    NS = DONE;
                 else
                     NS = DISPLAY;
             end
