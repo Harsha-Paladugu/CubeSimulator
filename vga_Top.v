@@ -87,7 +87,7 @@ initial begin
 end
 
 // ----------------------------------------------------
-// SOLVED MESSAGE ROM (same shape as before)
+// SOLVED MESSAGE ROM
 // ----------------------------------------------------
 reg [0:0] solved_rom [0:3072];
 
@@ -177,7 +177,7 @@ initial begin
     solved_rom[151] = 1;
     solved_rom[155] = 1;
 
-    // E (start at col 32)
+    // E (cols 32+)
     solved_rom[128 + 32] = 1;
     solved_rom[192 + 32] = 1;
     solved_rom[256 + 32] = 1;
@@ -205,7 +205,7 @@ initial begin
     solved_rom[640 + 36] = 1;
     solved_rom[640 + 37] = 1;
 
-    // D (start at col 40)
+    // D (cols 40+)
     solved_rom[128 + 40] = 1;
     solved_rom[192 + 40] = 1;
     solved_rom[256 + 40] = 1;
@@ -327,7 +327,7 @@ always @(*) begin
                 NS = RFM_INIT;
         end
 
-        W2M_INC: NS = W2M_COND;
+        W2M_INC:    NS = W2M_COND;
 
         RFM_INIT: begin
             if (frame_done)
@@ -358,7 +358,7 @@ always @(posedge clk or negedge rst) begin
 end
 
 // ----------------------------------------------------
-// STICKER → CUBE INDEX MAPPING (used only unsolved)
+// STICKER → CUBE INDEX MAPPING (unsolved mode)
 // ----------------------------------------------------
 reg  [5:0] cubeIdx;
 wire [2:0] cubeColor;
@@ -463,19 +463,18 @@ always @(posedge clk or negedge rst) begin
             end
 
             W2M_COND: begin
-                // no-op; NS governs exit
+                // nothing
             end
 
             // WRITE PHASE
             W2M_INC: begin
                 if (solved_frame) begin
-                    // SOLVED SCREEN: overwrite EVERY cell (no cube)
+                    // SOLVED SCREEN: overwrite EVERY cell
                     frame_buf_mem_address <= i;
                     if (solved_rom[i])
-                        frame_buf_mem_data <= {8'h00, 8'hFF, 8'h00}; // pure green
+                        frame_buf_mem_data <= {8'h00, 8'hFF, 8'h00}; // green text
                     else
-                        frame_buf_mem_data <= 24'h000000;            // black background
-
+                        frame_buf_mem_data <= 24'h000000;            // black bg
                     i <= i + 1;
                 end else begin
                     // NORMAL CUBE DRAW
@@ -483,19 +482,22 @@ always @(posedge clk or negedge rst) begin
                         case (write_substate)
                             3'b000: begin
                                 frame_buf_mem_address <= i;
-                                // color decided in comb block
+                                frame_buf_mem_data    <= {red, green, blue};
                                 write_substate        <= 3'b001;
                             end
                             3'b001: begin
                                 frame_buf_mem_address <= i + 1;
+                                frame_buf_mem_data    <= {red, green, blue};
                                 write_substate        <= 3'b010;
                             end
                             3'b010: begin
                                 frame_buf_mem_address <= i + LOOP_I_SIZE;
+                                frame_buf_mem_data    <= {red, green, blue};
                                 write_substate        <= 3'b011;
                             end
                             3'b011: begin
                                 frame_buf_mem_address <= i + LOOP_I_SIZE + 1;
+                                frame_buf_mem_data    <= {red, green, blue};
                                 write_substate        <= 3'b100;
                             end
                             3'b100: begin
@@ -505,8 +507,7 @@ always @(posedge clk or negedge rst) begin
                             end
                         endcase
                     end else begin
-                        // OFF cell: skip, just advance i
-                        i <= i + 1;
+                        i <= i + 1; // skip off pixels
                     end
                 end
             end
@@ -515,12 +516,14 @@ always @(posedge clk or negedge rst) begin
             RFM_INIT: begin
                 frame_buf_mem_wren <= 1'b0;
                 if (y < HEIGHT && x < WIDTH)
-                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT)*LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
+                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT)*LOOP_I_SIZE +
+                                             (x/PIXELS_IN_WIDTH);
             end
 
             RFM_DRAWING: begin
                 if (y < HEIGHT && x < WIDTH)
-                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT)*LOOP_I_SIZE + (x/PIXELS_IN_WIDTH);
+                    frame_buf_mem_address <= (y/PIXELS_IN_HEIGHT)*LOOP_I_SIZE +
+                                             (x/PIXELS_IN_WIDTH);
             end
 
             default: begin
@@ -531,23 +534,21 @@ always @(posedge clk or negedge rst) begin
 end
 
 // ----------------------------------------------------
-// COLOR MAPPING (for cube mode)
+// COLOR MAPPING (for cube mode) + VGA output
 // ----------------------------------------------------
 reg [7:0] red, green, blue;
 reg [2:0] packedColor;
 
 always @(*) begin
-    // VGA outputs always show what's currently in the framebuffer
+    // VGA shows framebuffer contents
     {VGA_R, VGA_G, VGA_B} = frame_buf_mem_q;
 
-    // Default values for write phase
     red         = 8'h00;
     green       = 8'h00;
     blue        = 8'h00;
     packedColor = 3'b000;
 
     if (!solved_frame) begin
-        // Only need color mapping when drawing cube squares
         packedColor = cubeColor;
 
         if      (packedColor == 3'b000) begin
@@ -566,9 +567,6 @@ always @(*) begin
             red   = 8'hFF; green = 8'h00; blue = 8'hFF;
         end
     end
-
-    // During write phase, the sequential block uses {red,green,blue}
-    frame_buf_mem_data = {red, green, blue};
 end
 
 endmodule
