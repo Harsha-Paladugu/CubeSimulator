@@ -15,7 +15,7 @@ module CubeSimDriver (
     // LEDS
     output      [9:0]   LEDR,
 
-    // SWITCHES (now 10 bits so SW[9:7] is valid)
+    // SWITCHES
     input       [9:0]   SW,
 	 
     // VGA
@@ -35,9 +35,7 @@ module CubeSimDriver (
     wire clk = CLOCK_50;
     wire rst = KEY[3];  // active-low
 
-    // Face SW selection: top 3 switches (easier to see)
     wire [2:0] faceSelect      = SW[9:7];
-    // Rotation selection: bottom 2 switches
     wire [1:0] rotationControl = SW[1:0];
     wire [5:0] faceInput       = {3'b000, faceSelect};
 
@@ -60,10 +58,8 @@ module CubeSimDriver (
         end else begin
             scramble_ff0 <= scramble_raw;
             scramble_ff1 <= scramble_ff0;
-
             move_ff0     <= move_raw;
             move_ff1     <= move_ff0;
-
             undo_ff0     <= undo_raw;
             undo_ff1     <= undo_ff0;
         end
@@ -82,30 +78,30 @@ module CubeSimDriver (
                DISPLAY  = 7'd1,
                SCRAMBLE = 7'd2,
                MOVE     = 7'd3,
-               VERIFY   = 7'd5,
                DONE     = 7'd6;
 
     //================================================================
-    // CUBE STATE + MULTI-UNDO STACK
+    // CUBE STATE + STACK
     //================================================================
-    reg  [161:0] cubeFlat;         // current state
-    wire [161:0] cubeFlatNext;     // output of cubeState
+    reg  [161:0] cubeFlat;
+    wire [161:0] cubeFlatNext;
 
-    // MULTI-UNDO HISTORY STACK (64 entries)
     reg  [161:0] history [0:63];
-    reg  [5:0]   histPtr;          // points to next free slot
+    reg  [5:0]   histPtr;
 
-    // solved flag
     reg isSolved;
 
-    // SOLVED pattern that matches START initialization
+    // NEW: track if user has actually scrambled / moved
+    reg gameStarted;
+
+    // solved pattern (matches START initialization)
     localparam [161:0] SOLVED_CUBE = {
-        {9{3'b101}},  // Face 5
-        {9{3'b100}},  // Face 4
-        {9{3'b011}},  // Face 3
-        {9{3'b010}},  // Face 2
-        {9{3'b001}},  // Face 1
-        {9{3'b000}}   // Face 0
+        {9{3'b101}},
+        {9{3'b100}},
+        {9{3'b011}},
+        {9{3'b010}},
+        {9{3'b001}},
+        {9{3'b000}}
     };
 
     wire solvedNow = (cubeFlat == SOLVED_CUBE);
@@ -120,7 +116,7 @@ module CubeSimDriver (
             2'b01: rotCount = 3'd1; // CW
             2'b10: rotCount = 3'd3; // CCW
             2'b11: rotCount = 3'd2; // double
-            default: rotCount = 3'd0; // none
+            default: rotCount = 3'd0;
         endcase
     end
 
@@ -138,7 +134,7 @@ module CubeSimDriver (
     );
 
     //================================================================
-    // SELECT MOVE SOURCE (MANUAL OR SCRAMBLE)
+    // SELECT MOVE SOURCE
     //================================================================
     reg [5:0] curFace;
     reg [2:0] curRotCount;
@@ -171,7 +167,7 @@ module CubeSimDriver (
     //================================================================
     // COUNTERS
     //================================================================
-    reg [5:0] scrambleCount; 
+    reg [5:0] scrambleCount;
     reg [9:0] moveCount;
 
     //================================================================
@@ -179,19 +175,20 @@ module CubeSimDriver (
     //================================================================
     wire [3:0] onesDigit     =  moveCount        % 10;
     wire [3:0] tensDigit     = (moveCount / 10)  % 10;
-    wire [3:0] hundredsDigit =  moveCount        % 100; // (this is actually not a real hundreds digit, but leaving as you had)
+    wire [3:0] hundredsDigit =  moveCount        / 100;
 
     wire [3:0] faceDigit = {1'b0, faceSelect};
     wire [3:0] rotDigit  = {1'b0, rotCount};
 
-    seven_segment      d0 (.SW(onesDigit),    .HEX0(HEX0));
-    seven_segment      d1 (.SW(tensDigit),    .HEX0(HEX1));
-    seven_segment      d3 (.SW(hundredsDigit),.HEX0(HEX2));
+    seven_segment      d0 (.SW(onesDigit),     .HEX0(HEX0));
+    seven_segment      d1 (.SW(tensDigit),     .HEX0(HEX1));
+    seven_segment      d2 (.SW(hundredsDigit), .HEX0(HEX2));
+
     seven_segment_move rotDisp  (.SW(rotDigit + 10), .HEX0(HEX4));
     seven_segment_move faceDisp (.SW(faceDigit),     .HEX0(HEX5));
 	 
     //================================================================
-    // VGA RENDERER
+    // VGA
     //================================================================
     vga_Top printCube (
         .clk(clk),
@@ -209,10 +206,10 @@ module CubeSimDriver (
     );
 
     //================================================================
-    // SEQUENTIAL LOGIC (STATE + MOVES + UNDO STACK)
+    // SEQUENTIAL LOGIC
     //================================================================
     integer i;
-	 
+
     always @(posedge clk or negedge rst) begin
         if (!rst) begin
             S             <= START;
@@ -221,6 +218,7 @@ module CubeSimDriver (
             moveCount     <= 0;
             histPtr       <= 0;
             isSolved      <= 1'b0;
+            gameStarted   <= 1'b0;
         end else begin
             S <= NS;
 
@@ -239,13 +237,15 @@ module CubeSimDriver (
                     scrambleCount <= 0;
                     moveCount     <= 0;
                     isSolved      <= 1'b0;
+                    gameStarted   <= 1'b0;   // still not started
                 end
 
                 SCRAMBLE: begin
                     cubeFlat      <= cubeFlatNext;
                     scrambleCount <= scrambleCount + 1;
                     moveCount     <= 0;
-                    isSolved      <= 1'b0;   // clear solved while scrambling
+                    isSolved      <= 1'b0;
+                    gameStarted   <= 1'b1;   // user has interacted
                 end
 
                 MOVE: begin
@@ -253,11 +253,11 @@ module CubeSimDriver (
                         history[histPtr] <= cubeFlat;
                         histPtr          <= histPtr + 1;
                     end
-
                     cubeFlat <= cubeFlatNext;
-
                     if (moveCount != 999 && curRotCount > 0)
                         moveCount <= moveCount + 1;
+
+                    gameStarted <= 1'b1;     // user has interacted
                 end
 
                 DISPLAY: begin
@@ -267,10 +267,7 @@ module CubeSimDriver (
                         if (moveCount > 0)
                             moveCount <= moveCount - 1;
                     end
-                end
-
-                VERIFY: begin
-                    isSolved <= solvedNow;
+                    // isSolved only asserted in DONE
                 end
 
                 DONE: begin
@@ -285,23 +282,25 @@ module CubeSimDriver (
     //================================================================
     always @(*) begin
         case (S)
-
             START:
                 NS = DISPLAY;
 
-            DISPLAY:
-                NS = scramble_pulse ? SCRAMBLE :
-                     move_pulse     ? MOVE :
-                     DISPLAY;
+            DISPLAY: begin
+                if (scramble_pulse)
+                    NS = SCRAMBLE;
+                else if (move_pulse)
+                    NS = MOVE;
+                else if (gameStarted && solvedNow)  // <--- only after scramble/move
+                    NS = DONE;
+                else
+                    NS = DISPLAY;
+            end
 
             SCRAMBLE:
                 NS = (scrambleCount == 6'd3) ? DISPLAY : SCRAMBLE;
 
             MOVE:
-                NS = VERIFY;
-
-            VERIFY:
-                NS = solvedNow ? DONE : DISPLAY;
+                NS = DISPLAY;
 
             DONE:
                 NS = DONE;
@@ -311,9 +310,6 @@ module CubeSimDriver (
         endcase
     end
 
-    //================================================================
-    // DEBUG LEDS
-    //================================================================
     assign LEDR[6:0] = S;
     assign LEDR[9:7] = 3'b000;
 
