@@ -3,6 +3,7 @@ module vga_Top	(
 	input 		  clk,
 	input [161:0] color,
 	input         rst,
+	input 		  solved,
 
 	//////////// VGA //////////
 	output		          VGA_BLANK_N,
@@ -14,6 +15,7 @@ module vga_Top	(
 	output		          VGA_SYNC_N,
 	output		          VGA_VS
 );
+ 
 
 // ----------------------------------------------------
 // BITMAP ROM (unchanged)
@@ -90,8 +92,161 @@ bitmap_rom[2322] = 1'b1;
 
 
 
-
 end
+
+reg [0:0] solved_rom [0:3072];
+integer s_init;
+initial begin
+    integer i;
+    for (i = 0; i < 3072; i=i+1)
+        solved_rom[i] = 1'b0;
+
+solved_rom[2*64 + 0] = 1;
+solved_rom[2*64 + 1] = 1;
+solved_rom[2*64 + 2] = 1;
+solved_rom[2*64 + 3] = 1;
+solved_rom[2*64 + 4] = 1;
+
+solved_rom[3*64 + 0] = 1;
+solved_rom[4*64 + 0] = 1;
+solved_rom[5*64 + 0] = 1;
+
+solved_rom[6*64 + 0] = 1;
+solved_rom[6*64 + 1] = 1;
+solved_rom[6*64 + 2] = 1;
+solved_rom[6*64 + 3] = 1;
+solved_rom[6*64 + 4] = 1;
+
+solved_rom[7*64 + 4] = 1;
+solved_rom[8*64 + 4] = 1;
+solved_rom[9*64 + 4] = 1;
+
+solved_rom[10*64 + 0] = 1;
+solved_rom[10*64 + 1] = 1;
+solved_rom[10*64 + 2] = 1;
+solved_rom[10*64 + 3] = 1;
+solved_rom[10*64 + 4] = 1;
+
+// -------------------------------------------------
+// O  (cols 8–11)
+// -------------------------------------------------
+solved_rom[128 + 8]  = 1;
+solved_rom[128 + 9]  = 1;
+solved_rom[128 + 10] = 1;
+solved_rom[128 + 11] = 1;
+
+solved_rom[192 + 8]  = 1;
+solved_rom[256 + 8]  = 1;
+solved_rom[320 + 8]  = 1;
+solved_rom[384 + 8]  = 1;
+solved_rom[448 + 8]  = 1;
+solved_rom[512 + 8]  = 1;
+solved_rom[576 + 8]  = 1;
+
+solved_rom[192 + 11] = 1;
+solved_rom[256 + 11] = 1;
+solved_rom[320 + 11] = 1;
+solved_rom[384 + 11] = 1;
+solved_rom[448 + 11] = 1;
+solved_rom[512 + 11] = 1;
+solved_rom[576 + 11] = 1;
+
+solved_rom[640 + 8]  = 1;
+solved_rom[640 + 9]  = 1;
+solved_rom[640 + 10] = 1;
+solved_rom[640 + 11] = 1;
+
+// -------------------------------------------------
+// L  (cols 16–19)
+// -------------------------------------------------
+solved_rom[128 + 16] = 1;
+solved_rom[192 + 16] = 1;
+solved_rom[256 + 16] = 1;
+solved_rom[320 + 16] = 1;
+solved_rom[384 + 16] = 1;
+solved_rom[448 + 16] = 1;
+solved_rom[512 + 16] = 1;
+solved_rom[576 + 16] = 1;
+solved_rom[640 + 16] = 1;
+
+solved_rom[640 + 17] = 1;
+solved_rom[640 + 18] = 1;
+solved_rom[640 + 19] = 1;
+
+// -------------------------------------------------
+// V  (cols 22–26)
+// -------------------------------------------------
+solved_rom[665]=1;
+solved_rom[536]=1;
+solved_rom[538]=1;
+solved_rom[407]=1;
+solved_rom[411]=1;
+solved_rom[279]=1;
+solved_rom[283]=1;
+solved_rom[151]=1;
+solved_rom[155]=1;
+
+
+// -------------------------------------------------
+// E  shifted right to **start at col 32** (was 30)
+// -------------------------------------------------
+solved_rom[128 + 32] = 1;
+solved_rom[192 + 32] = 1;
+solved_rom[256 + 32] = 1;
+solved_rom[320 + 32] = 1;
+solved_rom[384 + 32] = 1;
+solved_rom[448 + 32] = 1;
+solved_rom[512 + 32] = 1;
+solved_rom[576 + 32] = 1;
+solved_rom[640 + 32] = 1;
+
+solved_rom[128 + 33] = 1;
+solved_rom[128 + 34] = 1;
+solved_rom[128 + 35] = 1;
+solved_rom[128 + 36] = 1;
+solved_rom[128 + 37] = 1;
+
+solved_rom[384 + 33] = 1;
+solved_rom[384 + 34] = 1;
+solved_rom[384 + 35] = 1;
+solved_rom[384 + 36] = 1;
+
+solved_rom[640 + 33] = 1;
+solved_rom[640 + 34] = 1;
+solved_rom[640 + 35] = 1;
+solved_rom[640 + 36] = 1;
+solved_rom[640 + 37] = 1;
+
+// -------------------------------------------------
+// D shifted right to **start at col 40** (was 38)
+// -------------------------------------------------
+solved_rom[128 + 40] = 1;
+solved_rom[192 + 40] = 1;
+solved_rom[256 + 40] = 1;
+solved_rom[320 + 40] = 1;
+solved_rom[384 + 40] = 1;
+solved_rom[448 + 40] = 1;
+solved_rom[512 + 40] = 1;
+solved_rom[576 + 40] = 1;
+solved_rom[640 + 40] = 1;
+
+solved_rom[128 + 41] = 1;
+solved_rom[128 + 42] = 1;
+
+solved_rom[192 + 43] = 1;
+solved_rom[256 + 44] = 1;
+solved_rom[320 + 45] = 1;
+solved_rom[384 + 45] = 1;
+solved_rom[448 + 45] = 1;
+solved_rom[512 + 45] = 1;
+solved_rom[576 + 44] = 1;
+solved_rom[640 + 43] = 1;
+
+solved_rom[640 + 41] = 1;
+solved_rom[640 + 42] = 1;
+
+	end
+
 
 // ----------------------------------------------------
 // VGA DRIVER
@@ -100,6 +255,7 @@ wire active_pixels;
 wire frame_done;
 wire [9:0] x;  // current x
 wire [9:0] y;  // current y
+
 
 vga_driver the_vga(
     .clk(clk),
@@ -144,6 +300,9 @@ reg        blkx;     // indicates whether previous bitmap cell was OFF
 reg [7:0]  S, NS;
 reg [2:0] write_substate;
 reg [5:0] sticker;
+//Testing varible reg [0:0] solved;
+wire pixel_on = solved ? solved_rom[i] : bitmap_rom[i];
+
 
 
 parameter 
@@ -222,6 +381,7 @@ always @(posedge clk or negedge rst) begin
         j                     <= 8'd0;
 		  write_substate <= 3'b000;
 		  sticker <= 6'd0;
+		  //Testing varible solved <= 1'b1;
     end else begin
         case (S)
             START: begin
@@ -232,6 +392,7 @@ always @(posedge clk or negedge rst) begin
                 j                     <= 8'd0;
 					 sticker <= 6'd0;
 					 write_substate <= 3'b000;
+					 
             end
 
             // Start a new write pass
@@ -251,7 +412,7 @@ always @(posedge clk or negedge rst) begin
 
             // Write one pixel's worth of RGB to the framebuffer
             W2M_INC: begin
-    if (bitmap_rom[i] == 1'b1) begin
+    if (pixel_on == 1'b1) begin
         case (write_substate)
             3'b000: begin
                 frame_buf_mem_address <= i;
@@ -407,7 +568,7 @@ always @(*) begin
 
     // Only compute a color when we're in the write phase and the bitmap cell is ON
     // (During read phase, `red/green/blue` only matter indirectly via previous W2M pass).
-    if (bitmap_rom[i] == 1'b1) begin
+    if (pixel_on == 1'b1) begin
         // NOTE: j points to the *current* sticker's 3-bit color in `color`.
         packedColor = cubeColor;
 

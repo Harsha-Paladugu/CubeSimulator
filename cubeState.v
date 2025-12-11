@@ -17,6 +17,7 @@ module cubeState (
 
     // Make Move
     always @(*) begin
+
 			// 1. Copy current cube into tmp
 			j = 0;
 		for (i = 0; i < 54; i = i+1) begin
@@ -76,7 +77,7 @@ module cubeState (
 					end // end for loop
 				end // end U case
 				
-				6'd1: begin														// L face
+				6'd2: begin														// L face
 					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
@@ -126,7 +127,7 @@ module cubeState (
 					end // end for loop
 				end // end L case
 				
-				6'd2: begin														// F face
+				6'd4: begin														// F face
 					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
@@ -176,7 +177,7 @@ module cubeState (
 					end // end for loop
 				end // end F case
 				
-				6'd3: begin														// R face
+				6'd1: begin														// R face
 					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
@@ -225,7 +226,7 @@ module cubeState (
 						// *** Move Complete***
 					end // end for loop
 				end // end R case	
-				6'd4: begin														// B face
+				6'd3: begin														// B face
 					for(k = 0; k < nextRotation; k = k + 1) begin	// Perform move nextRotation # of times 
 					
 						//***Swap corners***
@@ -334,11 +335,3 @@ module cubeState (
          end // end for
  end // end always
 endmodule
-
-
-// 0 = U
-// 1 = L
-// 2 = F
-// 3 = R
-// 4 = B
-// 5 = D
