@@ -6,8 +6,7 @@ module CubeSimDriver (
     output      [6:0]   HEX0,
     output      [6:0]   HEX1,
     output      [6:0]   HEX2,
-    output      [6:0]   HEX4,
-	 output 		 [6:0]   HEX5,
+    output      [6:0]   HEX3,
 
     // BUTTONS
     input       [3:0]   KEY,
@@ -24,7 +23,7 @@ module CubeSimDriver (
     output              VGA_CLK,
     output      [7:0]   VGA_G,
     output              VGA_HS,
-    output      [7:0]   VGA_R,
+    output              VGA_R,
     output              VGA_SYNC_N,
     output              VGA_VS
 );
@@ -98,6 +97,19 @@ module CubeSimDriver (
     // solved flag
     reg isSolved;
 
+    // Pattern of a solved cube (matches START initialization)
+    localparam [161:0] SOLVED_PATTERN = {
+        {9{3'b101}},  // Face 5: indices 45–53
+        {9{3'b100}},  // Face 4: 36–44
+        {9{3'b011}},  // Face 3: 27–35
+        {9{3'b010}},  // Face 2: 18–26
+        {9{3'b001}},  // Face 1: 9–17
+        {9{3'b000}}   // Face 0: 0–8
+    };
+
+    // Combinational solved check
+    wire solvedNow = (cubeFlat == SOLVED_PATTERN);
+
     //================================================================
     // ROTATION SELECTION
     //================================================================
@@ -168,7 +180,6 @@ module CubeSimDriver (
     // Move count (two least significant digits)
     wire [3:0] onesDigit     =  moveCount        % 10;
     wire [3:0] tensDigit     = (moveCount / 10)  % 10;
-	 wire [3:0] hundredsDigit = moveCount 			% 100;
 
     // Selected move preview:
     //   HEX3 = selected face (0..5)
@@ -179,11 +190,10 @@ module CubeSimDriver (
     // Move count on HEX0, HEX1
     seven_segment d0 (.SW(onesDigit), .HEX0(HEX0));
     seven_segment d1 (.SW(tensDigit), .HEX0(HEX1));
-	 seven_segment d3 (.SW(hundredsDigit), .HEX0(HEX2));
 
     // Selected move on HEX2 (rotation) and HEX3 (face)
-	 seven_segment_move rotDisp (.SW(rotDigit + 10), .HEX0(HEX4));
-	 seven_segment_move faceDisp (.SW(faceDigit), .HEX0(HEX5));
+    seven_segment_move rotDisp  (.SW(rotDigit + 10), .HEX0(HEX2));
+    seven_segment_move faceDisp (.SW(faceDigit),     .HEX0(HEX3));
 	 
     //================================================================
     // VGA RENDERER
@@ -207,8 +217,7 @@ module CubeSimDriver (
     // SEQUENTIAL LOGIC (STATE + MOVES + UNDO STACK)
     //================================================================
     integer i;
-	 reg [161:0] solvedCube;
-	 
+
     always @(posedge clk or negedge rst) begin
         if (!rst) begin
             S             <= START;
@@ -234,7 +243,7 @@ module CubeSimDriver (
                         else if (i < 45)  cubeFlat[3*i +: 3] <= 3'b100;
                         else              cubeFlat[3*i +: 3] <= 3'b101;
                     end
-						  solvedCube <= cubeFlat;
+
                     histPtr       <= 0;
                     scrambleCount <= 0;
                     moveCount     <= 0;
@@ -248,6 +257,7 @@ module CubeSimDriver (
                     cubeFlat      <= cubeFlatNext;
                     scrambleCount <= scrambleCount + 1;
                     moveCount     <= 0;
+                    isSolved      <= 1'b0;  // clear solved flag while scrambling
                 end
 
                 //------------------------------------------------------
@@ -261,7 +271,7 @@ module CubeSimDriver (
 
                     cubeFlat <= cubeFlatNext;
 
-                    if (moveCount != 999 && curRotCount > 0)
+                    if (moveCount != 999)
                         moveCount <= moveCount + 1;
                 end
 
@@ -281,15 +291,11 @@ module CubeSimDriver (
                 // SOLVED CHECK
                 //------------------------------------------------------
                 VERIFY: begin
-                    if (cubeFlat == solvedCube) begin
-								isSolved <= 1'b1;
-						  end else begin
-								isSolved <= 1'b0;
-						  end
-					 end
+                    isSolved <= solvedNow;
+                end
 
                 //------------------------------------------------------
-                // DONE: hold solved flag (if you ever jump here)
+                // DONE: hold solved flag
                 //------------------------------------------------------
                 DONE: begin
                     isSolved <= 1'b1;
@@ -313,15 +319,15 @@ module CubeSimDriver (
                      DISPLAY;
 
             SCRAMBLE:
-                NS = (scrambleCount == 6'd3) ? DISPLAY : SCRAMBLE;
+                NS = (scrambleCount == 6'd29) ? DISPLAY : SCRAMBLE;
 
             // After a move, go check if it's solved
             MOVE:
                 NS = VERIFY;
 
-            // In VERIFY, use solvedNow right away
+            // In VERIFY, use solvedNow directly
             VERIFY:
-                NS = isSolved ? DONE : DISPLAY;
+                NS = solvedNow ? DONE : DISPLAY;
 
             DONE:
                 NS = DONE;
@@ -330,10 +336,12 @@ module CubeSimDriver (
                 NS = START;
         endcase
     end
+
     //================================================================
     // DEBUG LEDS
     //================================================================
-    assign LEDR[6:0] = S;
-    assign LEDR[9:7] = 3'b000;
+    assign LEDR[6:0] = S;      // show state on lower LEDs
+    assign LEDR[7]   = isSolved; // solved indicator
+    assign LEDR[9:8] = 2'b00;    // unused
 
 endmodule
