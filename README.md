@@ -4,11 +4,16 @@ The main challenge was implementing all cube behavior in hardware. The design ha
 2. Background and Requirements
 A Rubik’s Cube has 6 faces with 9 stickers per face, for a total of 54 stickers. Each move of the cube rearranges these stickers in a fixed way. In hardware, this means keeping track of sticker positions and applying predefined permutations.
 The project had several key requirements:
+
 Represent the cube in a 2D layout
+
 Maintain a correct and functioning cube state in hardware
+
 Allow the user to control the cube using switches and buttons
+
 Use a clean control structure to manage system behavior
-3. System Design
+
+4. System Design
 3.1 Finite State Machine Design
 A finite state machine (FSM) controls the overall flow of the system. It handles cube initialization, scrambling, move execution, solved-state checking, and bonus features like move counting and undo. Using an FSM ensures that each operation happens in a controlled order and that user inputs only trigger one action at a time.
 3.2 Cube Mechanism Design
@@ -17,7 +22,7 @@ Cube moves are implemented as fixed permutations of sticker indices. When a move
 The cube state is also sent out as a flattened 162-bit signal so other modules can read the full cube state easily.
 3.3 VGA Design
 On the surface VGA design is quite simple but not very elegant. Because the rubix cube does not require movement or rearranging of blocks, merely a coloring change to an array of constant locations was the best approach. Basically the screen is split up into an array of 3072 pixels (note these aren’t actual pixels but a large grouping of them). Then there are 54 assignments, one for each block. The FSM then iterates through the array during its read sequence. If the block is a 0 then it sets it to black. If that particular block is a 1 then two things happen. First it takes in 3 bits from a 162 bit array sent from the top level cube module, this is for color. Then it turns on 3 more pixels, and shares the color, to get the size of the square appropriate for the screen. Once it iterates through the array the rubix cube will appear on the screen. The screen will change to a solved window when a 1 bit viable is set to 1. It writes to the screen in much the same way as the rubix cube.
-4. Results and Features
+5. Results and Features
 The final system works as intended. The cube initializes correctly, moves are applied accurately, and the system reliably detects when the cube is solved.
 Several bonus features were added:
 Solved-state screen
