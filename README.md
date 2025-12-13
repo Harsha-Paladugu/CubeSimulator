@@ -1,4 +1,4 @@
-#CubeSim – FPGA Rubik’s Cube Simulator
+FPGA Rubik’s Cube Simulator
 
 CubeSim is a Rubik’s Cube simulator implemented entirely in hardware using Verilog on an FPGA. The project models the cube state, applies legal cube moves through hardware inputs, and detects when the cube has been solved. The cube is displayed visually, and the system includes several quality-of-life features such as move counting and undo support.
 
