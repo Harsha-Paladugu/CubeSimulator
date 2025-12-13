@@ -61,7 +61,7 @@ This project shows that a Rubik’s Cube can be accurately modeled and controlle
 The FSM-based control structure keeps the system organized and makes it straightforward to add new features in the future.
 
 9. Demonstration
-Video Showcase: link
+Video Showcase: [link](https://youtu.be/8Ofi-eHllAc?si=l8BJyFC02tYU2IFx)
 
 11. Citations
 None of the cube control logic was borrowed from another source. However, parts of the VGA FSM and supporting files were adapted from material provided by Peter Jamieson. These files are labeled “source” on GitHub, and any reused code is clearly marked.
